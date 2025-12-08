@@ -1,0 +1,27 @@
+{
+  "name": "dududata",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@headlessui/react": "^1.7.18",
+    "@heroicons/react": "^2.0.18",
+    "@paystack/inline-js": "^1.0.4",
+    "@supabase/supabase-js": "^2.45.4",
+    "framer-motion": "^11.3.30",
+    "next": "14.2.3",
+    "next-themes": "^0.3.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-hot-toast": "^2.4.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1"
+  }
+}
