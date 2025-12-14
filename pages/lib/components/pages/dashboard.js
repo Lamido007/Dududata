@@ -7,29 +7,33 @@ export default function Dashboard() {
   const [balance, setBalance] = useState(0)
 
   useEffect(() => {
-    const getUser = async () => {
+    const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       if (user) {
-        // Get wallet balance (we'll add real query later)
-        setBalance(5000) // mock for now
+        setBalance(5000) // Mock balance for now — real one later
       }
     }
-    getUser()
+    checkUser()
   }, [])
 
-  if (!user) return <Auth onLogin={() => window.location.reload()} />
+  if (!user) {
+    return <Auth onSuccess={() => window.location.reload()} />
+  }
 
   return (
-    <div className="p-6">
-      <h1 className="text-4xl font-bold mb-6">Dashboard</h1>
-      <p>Welcome, {user.email}!</p>
-      <div className="bg-accent text-white p-6 rounded-xl my-6 text-3xl font-bold">
-        Wallet Balance: ₦{balance}
+    <div className="min-h-screen bg-gray-50 p-6">
+      <h1 className="text-4xl font-bold text-center mb-8 text-primary">Dashboard</h1>
+      <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+        <p className="text-xl mb-4">Welcome back!</p>
+        <p className="text-lg text-gray-600 mb-8">Email: {user.email}</p>
+        <div className="bg-accent text-white p-6 rounded-xl text-3xl font-bold mb-8">
+          Wallet Balance: ₦{balance}
+        </div>
+        <button className="w-full bg-primary text-white py-4 rounded-lg text-xl font-bold">
+          Fund Wallet (Paystack coming soon)
+        </button>
       </div>
-      <button className="w-full bg-primary text-white py-4 rounded-lg text-xl font-bold">
-        Fund Wallet (Paystack coming soon)
-      </button>
     </div>
   )
-            }
+      }
