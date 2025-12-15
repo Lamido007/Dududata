@@ -35,6 +35,12 @@ export default function Home() {
             </Link>
           </div>
         </main>
+               <div className="text-center mt-12">
+        <a href="/dashboard" className="bg-accent text-white px-8 py-4 rounded-full text-xl font-bold hover:bg-green-600">
+          Login / View Wallet
+        </a>
+        <p className="mt-4 text-lg">New user? Register inside</p>
+      </div>
       </div>
     </>
   )
