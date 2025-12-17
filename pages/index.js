@@ -61,12 +61,12 @@ export default function Home() {
             </a>
           </div>
 
-          <div className="text-center">
+          <div className="text-center pb-12">
             <a 
-              href="/dashboard" 
-              className="bg-white text-primary px-10 py-5 rounded-full text-2xl font-bold hover:scale-105 transition inline-block"
+              href="/login" 
+              className="bg-accent text-white px-10 py-5 rounded-full text-2xl font-bold hover:bg-green-600 transition inline-block"
             >
-              Login / My Wallet
+              Login / Register
             </a>
             <p className="mt-6 text-xl opacity-90">
               New users get ₦100 bonus on first funding!
