@@ -9,7 +9,10 @@ export default function Dashboard() {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
-      if (user) setBalance(5000) // Mock
+      if (user) {
+        const { data } = await supabase.from('profiles').select('wallet_balance').eq('id', user.id).single()
+        setBalance(data?.wallet_balance || 0)
+      }
     }
     getUser()
   }, [])
@@ -20,12 +23,18 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
-      <p>Welcome, {user.email}!</p>
-      <div className="bg-green-500 text-white p-6 rounded mt-4 text-2xl">
-        Wallet: ₦{balance}
+    <div className="min-h-screen bg-gray-50 p-6">
+      <h1 className="text-4xl font-bold text-center mb-8 text-primary">My Dashboard</h1>
+      <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 text-center">
+        <p className="text-xl mb-4">Welcome back!</p>
+        <p className="text-lg text-gray-600 mb-8">Email: {user.email}</p>
+        <div className="bg-accent text-white p-6 rounded-xl text-3xl font-bold mb-8">
+          Wallet Balance: ₦{balance}
+        </div>
+        <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-500 text-white py-4 rounded-lg text-xl font-bold">
+          Logout
+        </button>
       </div>
     </div>
   )
-    }
+  }
