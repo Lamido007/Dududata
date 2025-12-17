@@ -17,18 +17,26 @@ export default function Auth({ onSuccess }) {
 
     let error
     if (isSignUp) {
-      const { error: signUpError } = await supabase.auth.signUp({ email, password })
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
       error = signUpError
-      if (!error) alert('Check email for confirmation!')
+      if (!error && data.user) {
+        // Auto-create profile/wallet
+        const { error: profileError } = await supabase.from('profiles').insert({
+          id: data.user.id,
+          wallet_balance: 0
+        })
+        if (profileError) alert('Profile creation error: ' + profileError.message)
+        else alert('Registered! Check email for confirmation.')
+      }
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       error = signInError
     }
 
-    if (error) alert(error.message)
-    else {
+    if (error) {
+      alert(error.message)
+    } else {
       if (onSuccess) onSuccess()
-      alert(isSignUp ? 'Registered!' : 'Logged in!')
     }
 
     setLoading(false)
@@ -54,4 +62,4 @@ export default function Auth({ onSuccess }) {
       </div>
     </div>
   )
-        }
+  }
