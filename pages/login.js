@@ -1,8 +1,5 @@
-export default function Login() {
-  return (
-    <div>
-      <h1>Login Page</h1>
-      <p>If you see this, login routing works.</p>
-    </div>
-  );
+import Auth from '../components/Auth'
+
+export default function LoginPage() {
+  return <Auth onSuccess={() => window.location.href = '/dashboard'} />
 }
