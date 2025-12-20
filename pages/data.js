@@ -1,36 +1,79 @@
-export default function DataPlans() {
+import Head from 'next/head'
+
+export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-4xl font-bold text-center mb-8 text-blue-800">Buy Data Plans</h1>
-      <div className="max-w-4xl mx-auto">
-        <select className="w-full p-4 mb-6 border rounded-lg text-black text-lg">
-          <option>MTN</option>
-          <option>Glo</option>
-          <option>Airtel</option>
-          <option>9mobile</option>
-        </select>
-        <input placeholder="Phone Number" className="w-full p-4 mb-8 border rounded-lg text-black" />
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow text-center">
-            <p className="text-3xl font-bold text-green-500">1GB</p>
-            <p className="text-2xl font-bold text-blue-800">₦450</p>
-            <p className="text-gray-600 mb-4">30 days</p>
-            <button className="bg-blue-800 text-white w-full py-3 rounded-lg font-bold">Buy Now</button>
+    <>
+      <Head>
+        <title>DuduData - Cheapest Data, Airtime & Bills in Nigeria</title>
+        <meta name="description" content="Cheapest Data, Airtime VTU, Electricity, Cable TV, Betting Funding & Exam PINs in Nigeria" />
+      </Head>
+
+      <div className="min-h-screen bg-gradient-to-br from-primary to-blue-900 text-white">
+        <nav className="flex justify-between items-center p-6 max-w-6xl mx-auto">
+          <div className="flex items-center space-x-4">
+            <div className="bg-white text-primary w-16 h-16 rounded-full flex items-center justify-center text-3xl font-bold">
+              DD
+            </div>
+            <h1 className="text-4xl font-bold">DuduData</h1>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow text-center">
-            <p className="text-3xl font-bold text-green-500">2GB</p>
-            <p className="text-2xl font-bold text-blue-800">₦900</p>
-            <p className="text-gray-600 mb-4">30 days</p>
-            <button className="bg-blue-800 text-white w-full py-3 rounded-lg font-bold">Buy Now</button>
+          <a 
+            href="https://wa.me/2348106650796" 
+            className="bg-accent px-8 py-4 rounded-full text-xl font-bold hover:bg-green-600 transition"
+          >
+            Chat on WhatsApp
+          </a>
+        </nav>
+
+        <main className="text-center px-6 py-12">
+          <h2 className="text-5xl md:text-6xl font-bold mb-8">
+            Cheapest Data & Airtime in Nigeria
+          </h2>
+          <p className="text-xl md:text-2xl mb-16 opacity-90">
+            Instant delivery • Lowest prices • 24/7 support
+          </p>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-20">
+            <a 
+              href="/data" 
+              className="bg-white text-primary p-10 rounded-3xl shadow-2xl hover:scale-105 transition transform"
+            >
+              <h3 className="text-3xl font-bold mb-6">Buy Data</h3>
+              <p className="text-5xl font-bold text-accent mb-4">From ₦75/GB</p>
+              <p className="text-lg opacity-80">MTN • Glo • Airtel • 9mobile</p>
+            </a>
+
+            <a 
+              href="/airtime" 
+              className="bg-white text-primary p-10 rounded-3xl shadow-2xl hover:scale-105 transition transform"
+            >
+              <h3 className="text-3xl font-bold mb-6">Airtime VTU</h3>
+              <p className="text-5xl font-bold text-accent mb-4">Up to 5% Off</p>
+              <p className="text-lg opacity-80">All networks • Instant credit</p>
+            </a>
+
+            <a 
+              href="/bills" 
+              className="bg-white text-primary p-10 rounded-3xl shadow-2xl hover:scale-105 transition transform"
+            >
+              <h3 className="text-3xl font-bold mb-6">Pay Bills</h3>
+              <p className="text-5xl font-bold text-accent mb-4">Instant Delivery</p>
+              <p className="text-lg opacity-80">Electricity • DSTV • Betting • Exam PINs</p>
+            </a>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow text-center">
-            <p className="text-3xl font-bold text-green-500">5GB</p>
-            <p className="text-2xl font-bold text-blue-800">₦2,250</p>
-            <p className="text-gray-600 mb-4">30 days</p>
-            <button className="bg-blue-800 text-white w-full py-3 rounded-lg font-bold">Buy Now</button>
+
+          <div className="text-center pb-12">
+            <a 
+              href="/login" 
+              className="bg-accent text-white px-10 py-5 rounded-full text-2xl font-bold hover:bg-green-600 transition inline-block"
+            >
+              Login / Register
+            </a>
+            <p className="mt-6 text-xl opacity-90">
+              New users get ₦100 bonus on first funding!
+            </p>
           </div>
-        </div>
+        </main>
       </div>
-    </div>
-  );
-}
+    </>
+  )
+    }
