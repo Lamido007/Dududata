@@ -1,26 +1,32 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import Auth from '../components/Auth'
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [balance, setBalance] = useState(0)
+  const [supabase, setSupabase] = useState(null)
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+    const loadSupabase = async () => {
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      const client = createClient(supabaseUrl, supabaseAnonKey)
+      setSupabase(client)
+
+      const { data: { user } } = await client.auth.getUser()
       setUser(user)
       if (user) {
-        const { data } = await supabase.from('profiles').select('wallet_balance').eq('id', user.id).single()
+        const { data } = await client.from('profiles').select('wallet_balance').eq('id', user.id).single()
         setBalance(data?.wallet_balance || 0)
       }
     }
-    getUser()
+    loadSupabase()
   }, [])
 
-  if (!user) {
-    window.location.href = '/login'
-    return null
-  }
+  if (!supabase) return <p className="text-center mt-20">Loading...</p>
+
+  if (!user) return <Auth onSuccess={() => window.location.reload()} />
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -37,4 +43,4 @@ export default function Dashboard() {
       </div>
     </div>
   )
-  }
+        }
