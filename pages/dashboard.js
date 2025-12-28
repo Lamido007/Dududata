@@ -1,30 +1,24 @@
 import { useEffect, useState } from 'react'
 import Auth from '../components/Auth'
+import { getSupabaseClient } from '../lib/supabaseClient'
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [balance, setBalance] = useState(0)
-  const [supabase, setSupabase] = useState(null)
 
   useEffect(() => {
-    const loadSupabase = async () => {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      const client = createClient(supabaseUrl, supabaseAnonKey)
-      setSupabase(client)
+    const supabase = getSupabaseClient()
 
-      const { data: { user } } = await client.auth.getUser()
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       if (user) {
-        const { data } = await client.from('profiles').select('wallet_balance').eq('id', user.id).single()
+        const { data } = await supabase.from('profiles').select('wallet_balance').eq('id', user.id).single()
         setBalance(data?.wallet_balance || 0)
       }
     }
-    loadSupabase()
+    checkUser()
   }, [])
-
-  if (!supabase) return <p className="text-center mt-20">Loading...</p>
 
   if (!user) return <Auth onSuccess={() => window.location.reload()} />
 
@@ -37,10 +31,7 @@ export default function Dashboard() {
         <div className="bg-accent text-white p-6 rounded-xl text-3xl font-bold mb-8">
           Wallet Balance: ₦{balance}
         </div>
-        <button onClick={() => supabase.auth.signOut()} className="w-full bg-red-500 text-white py-4 rounded-lg text-xl font-bold">
-          Logout
-        </button>
       </div>
     </div>
   )
-        }
+      }
