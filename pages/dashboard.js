@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import Auth from '../components/Auth'
-import { getSupabaseClient } from '../lib/supabaseClient'
+import { getSupabase } from '../lib/supabaseClient'
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [balance, setBalance] = useState(0)
 
   useEffect(() => {
-    const supabase = getSupabaseClient()
+    const supabase = getSupabase()
 
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -34,4 +34,4 @@ export default function Dashboard() {
       </div>
     </div>
   )
-      }
+                                     }
