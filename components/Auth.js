@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { getSupabase } from '../lib/supabaseClient'
 
 export default function Auth({ onSuccess }) {
   const [email, setEmail] = useState('')
@@ -15,19 +15,13 @@ export default function Auth({ onSuccess }) {
 
     setLoading(true)
 
+    const supabase = getSupabase()
+
     let error
     if (isSignUp) {
-      const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+      const { error: signUpError } = await supabase.auth.signUp({ email, password })
       error = signUpError
-      if (!error && data.user) {
-        // Auto-create profile/wallet
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: data.user.id,
-          wallet_balance: 0
-        })
-        if (profileError) alert('Profile creation error: ' + profileError.message)
-        else alert('Registered! Check email for confirmation.')
-      }
+      if (!error) alert('Check email for confirmation!')
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       error = signInError
@@ -37,6 +31,7 @@ export default function Auth({ onSuccess }) {
       alert(error.message)
     } else {
       if (onSuccess) onSuccess()
+      alert(isSignUp ? 'Registered!' : 'Logged in!')
     }
 
     setLoading(false)
@@ -62,4 +57,4 @@ export default function Auth({ onSuccess }) {
       </div>
     </div>
   )
-  }
+}
