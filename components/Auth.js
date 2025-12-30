@@ -57,4 +57,4 @@ export default function Auth({ onSuccess }) {
       </div>
     </div>
   )
-      }
+        }
