@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { getSupabase } from '../lib/supabaseClient'
 
-export default function LoginPage() {
+export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -9,7 +9,7 @@ export default function LoginPage() {
 
   const handleAuth = async () => {
     if (!email || !password) {
-      alert('Please enter email and password')
+      alert('Enter email and password')
       return
     }
 
@@ -19,25 +19,18 @@ export default function LoginPage() {
 
     let error
     if (isSignUp) {
-      const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+      const { error: signUpError } = await supabase.auth.signUp({ email, password })
       error = signUpError
-      if (!error && data.user) {
-        // Auto-create profile
-        await supabase.from('profiles').insert({
-          id: data.user.id,
-          wallet_balance: 0
-        })
-        alert('Check your email for confirmation link!')
-      }
+      if (!error) alert('Check email for confirmation!')
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       error = signInError
     }
 
-    if (error) {
-      alert(error.message)
-    } else {
-      window.location.href = '/dashboard'
+    if (error) alert(error.message)
+    else {
+      alert(isSignUp ? 'Registered!' : 'Logged in!')
+      window.location.href = '/dashboard' // Redirect to dashboard
     }
 
     setLoading(false)
@@ -47,47 +40,20 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <h2 className="text-3xl font-bold text-center mb-8 text-primary">
-          {isSignUp ? 'Create Account' : 'Welcome Back'}
+          {isSignUp ? 'Register' : 'Login'}
         </h2>
-
-        <input
-          type="email"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-4 mb-4 border border-gray-300 rounded-lg text-black focus:outline-none focus:border-accent"
-          disabled={loading}
-        />
-
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-4 mb-6 border border-gray-300 rounded-lg text-black focus:outline-none focus:border-accent"
-          disabled={loading}
-        />
-
-        <button
-          onClick={handleAuth}
-          disabled={loading}
-          className="w-full bg-accent text-white py-4 rounded-lg font-bold text-xl hover:bg-green-600 disabled:opacity-50"
-        >
+        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-4 mb-4 border rounded text-black" disabled={loading} />
+        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-4 mb-6 border rounded text-black" disabled={loading} />
+        <button onClick={handleAuth} disabled={loading} className="w-full bg-accent text-white py-4 rounded font-bold">
           {loading ? 'Loading...' : isSignUp ? 'Register' : 'Login'}
         </button>
-
-        <p className="text-center mt-6 text-gray-600">
-          {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button
-            type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-primary font-bold hover:underline"
-            disabled={loading}
-          >
-            {isSignUp ? 'Login here' : 'Register here'}
+        <p className="text-center mt-6">
+          {isSignUp ? 'Have account?' : 'No account?'}{' '}
+          <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-primary font-bold">
+            {isSignUp ? 'Login' : 'Register'}
           </button>
         </p>
       </div>
     </div>
   )
-}
+    }
