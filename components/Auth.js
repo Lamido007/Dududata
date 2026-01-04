@@ -70,24 +70,8 @@ export default function Auth({ onSuccess }) {
           return
         }
 
-        // Step 2: Create user profile with wallet
+        // Step 2: Profile is created automatically by trigger
         if (signUpData.user) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert([
-              {
-                id: signUpData.user.id,
-                email: email,
-                wallet_balance: 0,
-                created_at: new Date().toISOString()
-              }
-            ])
-
-          if (profileError) {
-            console.error('Profile creation error:', profileError)
-            // Don't show error to user as account was created successfully
-          }
-
           setSuccess('Account created successfully! Please check your email to verify your account.')
           
           // Clear form
