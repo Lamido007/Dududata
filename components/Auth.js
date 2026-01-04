@@ -4,7 +4,7 @@ import { getSupabase } from '../lib/supabaseClient'
 export default function Auth({ onSuccess }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  the [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
 
   const handleAuth = async () => {
