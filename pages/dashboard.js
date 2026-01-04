@@ -30,7 +30,7 @@ export default function Dashboard() {
 
       setUser(user)
 
-      // Fetch user's wallet balance
+      // Fetch user's wallet balance 
       const { data, error: balanceError } = await supabase
         .from('profiles')
         .select('wallet_balance')
