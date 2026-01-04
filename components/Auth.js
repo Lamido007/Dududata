@@ -4,14 +4,30 @@ import { getSupabase } from '../lib/supabaseClient'
 export default function Auth({ onSuccess }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return re.test(email)
+  }
 
   const handleAuth = async () => {
+    // Clear previous messages
+    setError('')
+    setSuccess('')
+
     // Validation
     if (!email || !password) {
       setError('Please enter both email and password')
+      return
+    }
+
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address')
       return
     }
 
@@ -20,8 +36,12 @@ export default function Auth({ onSuccess }) {
       return
     }
 
+    if (isSignUp && password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
     setLoading(true)
-    setError('')
 
     try {
       const supabase = getSupabase()
@@ -33,18 +53,56 @@ export default function Auth({ onSuccess }) {
       }
 
       if (isSignUp) {
-        const { data, error: signUpError } = await supabase.auth.signUp({ 
+        // Step 1: Sign up the user
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ 
           email, 
-          password 
+          password,
+          options: {
+            data: {
+              email: email
+            }
+          }
         })
         
         if (signUpError) {
           setError(signUpError.message)
-        } else {
-          alert('Account created! Please check your email for a confirmation link.')
-          setIsSignUp(false) // Switch to login view
+          setLoading(false)
+          return
+        }
+
+        // Step 2: Create user profile with wallet
+        if (signUpData.user) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: signUpData.user.id,
+                email: email,
+                wallet_balance: 0,
+                created_at: new Date().toISOString()
+              }
+            ])
+
+          if (profileError) {
+            console.error('Profile creation error:', profileError)
+            // Don't show error to user as account was created successfully
+          }
+
+          setSuccess('Account created successfully! Please check your email to verify your account.')
+          
+          // Clear form
+          setEmail('')
+          setPassword('')
+          setConfirmPassword('')
+          
+          // Switch to login after 3 seconds
+          setTimeout(() => {
+            setIsSignUp(false)
+            setSuccess('')
+          }, 3000)
         }
       } else {
+        // Sign in
         const { data, error: signInError } = await supabase.auth.signInWithPassword({ 
           email, 
           password 
@@ -53,7 +111,10 @@ export default function Auth({ onSuccess }) {
         if (signInError) {
           setError(signInError.message)
         } else if (data.user) {
-          if (onSuccess) onSuccess()
+          setSuccess('Login successful! Redirecting...')
+          setTimeout(() => {
+            if (onSuccess) onSuccess()
+          }, 1000)
         }
       }
     } catch (err) {
@@ -78,13 +139,19 @@ export default function Auth({ onSuccess }) {
             {isSignUp ? 'Create Account' : 'Welcome Back'}
           </h2>
           <p className="text-gray-600">
-            {isSignUp ? 'Sign up to get started' : 'Sign in to your account'}
+            {isSignUp ? 'Sign up to get started with DuduData' : 'Sign in to your account'}
           </p>
         </div>
 
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-green-600 text-sm">{success}</p>
           </div>
         )}
 
@@ -121,12 +188,40 @@ export default function Auth({ onSuccess }) {
             />
           </div>
 
+          {isSignUp && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loading}
+                autoComplete="new-password"
+              />
+            </div>
+          )}
+
           <button
             onClick={handleAuth}
             disabled={loading}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold text-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+            {loading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {isSignUp ? 'Creating Account...' : 'Signing In...'}
+              </span>
+            ) : (
+              isSignUp ? 'Create Account' : 'Sign In'
+            )}
           </button>
         </div>
 
@@ -138,6 +233,9 @@ export default function Auth({ onSuccess }) {
               onClick={() => {
                 setIsSignUp(!isSignUp)
                 setError('')
+                setSuccess('')
+                setPassword('')
+                setConfirmPassword('')
               }}
               className="text-blue-600 font-semibold hover:text-blue-700 hover:underline focus:outline-none"
               disabled={loading}
@@ -149,4 +247,4 @@ export default function Auth({ onSuccess }) {
       </div>
     </div>
   )
-    }
+}
