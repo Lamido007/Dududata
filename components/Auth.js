@@ -1,14 +1,26 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import { getSupabase } from '../lib/supabaseClient'
 
 export default function Auth({ onSuccess }) {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [referralCode, setReferralCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  useEffect(() => {
+    // Check for referral code in URL
+    const ref = router.query.ref
+    if (ref) {
+      setReferralCode(ref)
+      setIsSignUp(true)
+    }
+  }, [router.query])
 
   const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -79,13 +91,28 @@ export default function Auth({ onSuccess }) {
         }
 
         if (signUpData.user) {
+          // Check if referral code exists and get referrer ID
+          let referrerId = null
+          if (referralCode) {
+            const { data: referrerData } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('referral_code', referralCode.toUpperCase())
+              .single()
+
+            if (referrerData) {
+              referrerId = referrerData.id
+            }
+          }
+
           // Manually create profile if trigger doesn't work
           const { error: profileError } = await supabase
             .from('profiles')
             .insert([
               {
                 id: signUpData.user.id,
-                wallet_balance: 0
+                wallet_balance: 0,
+                referred_by: referrerId
               }
             ])
             .select()
@@ -101,6 +128,7 @@ export default function Auth({ onSuccess }) {
           setEmail('')
           setPassword('')
           setConfirmPassword('')
+          setReferralCode('')
           
           // Switch to login after 2 seconds
           setTimeout(() => {
@@ -240,6 +268,26 @@ export default function Auth({ onSuccess }) {
               {confirmPassword && password === confirmPassword && (
                 <p className="text-green-500 text-xs mt-1">✅ Passwords match</p>
               )}
+            </div>
+          )}
+
+          {isSignUp && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Referral Code (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="Enter referral code"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
+                disabled={loading}
+                maxLength={8}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Have a referral code? Enter it to give your referrer a commission!
+              </p>
             </div>
           )}
 
