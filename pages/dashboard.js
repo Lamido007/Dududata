@@ -126,6 +126,12 @@ export default function Dashboard() {
           </div>
           <div className="flex gap-3">
             <button 
+              onClick={() => router.push('/support')}
+              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition-colors"
+            >
+              💬 Support
+            </button>
+            <button 
               onClick={() => router.push('/notifications')}
               className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition-colors relative"
             >
@@ -304,4 +310,4 @@ export default function Dashboard() {
       </div>
     </div>
   )
-          }
+        }
