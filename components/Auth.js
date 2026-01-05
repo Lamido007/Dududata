@@ -15,7 +15,9 @@ export default function Auth({ onSuccess }) {
     return re.test(email)
   }
 
-  const handleAuth = async () => {
+  const handleAuth = async (e) => {
+    if (e) e.preventDefault()
+    
     // Clear previous messages
     setError('')
     setSuccess('')
@@ -36,9 +38,17 @@ export default function Auth({ onSuccess }) {
       return
     }
 
-    if (isSignUp && password !== confirmPassword) {
-      setError('Passwords do not match')
-      return
+    // Password confirmation check for signup
+    if (isSignUp) {
+      if (!confirmPassword) {
+        setError('Please confirm your password')
+        return
+      }
+      
+      if (password !== confirmPassword) {
+        setError('Passwords do not match! Please check and try again.')
+        return
+      }
     }
 
     setLoading(true)
@@ -53,14 +63,12 @@ export default function Auth({ onSuccess }) {
       }
 
       if (isSignUp) {
-        // Step 1: Sign up the user
+        // Sign up the user
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ 
           email, 
           password,
           options: {
-            data: {
-              email: email
-            }
+            emailRedirectTo: window.location.origin + '/dashboard'
           }
         })
         
@@ -70,20 +78,35 @@ export default function Auth({ onSuccess }) {
           return
         }
 
-        // Step 2: Profile is created automatically by trigger
         if (signUpData.user) {
-          setSuccess('Account created successfully! Please check your email to verify your account.')
+          // Manually create profile if trigger doesn't work
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: signUpData.user.id,
+                wallet_balance: 0
+              }
+            ])
+            .select()
+
+          if (profileError) {
+            console.error('Profile creation error:', profileError)
+            // Don't show error to user, profile might already exist
+          }
+
+          setSuccess('Account created successfully! You can now login.')
           
           // Clear form
           setEmail('')
           setPassword('')
           setConfirmPassword('')
           
-          // Switch to login after 3 seconds
+          // Switch to login after 2 seconds
           setTimeout(() => {
             setIsSignUp(false)
             setSuccess('')
-          }, 3000)
+          }, 2000)
         }
       } else {
         // Sign in
@@ -95,10 +118,29 @@ export default function Auth({ onSuccess }) {
         if (signInError) {
           setError(signInError.message)
         } else if (data.user) {
+          // Check if profile exists, if not create it
+          const { data: profileData, error: profileCheckError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single()
+
+          if (profileCheckError || !profileData) {
+            // Create profile if it doesn't exist
+            await supabase
+              .from('profiles')
+              .insert([
+                {
+                  id: data.user.id,
+                  wallet_balance: 0
+                }
+              ])
+          }
+
           setSuccess('Login successful! Redirecting...')
           setTimeout(() => {
             if (onSuccess) onSuccess()
-          }, 1000)
+          }, 500)
         }
       }
     } catch (err) {
@@ -128,18 +170,18 @@ export default function Auth({ onSuccess }) {
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600 text-sm">{error}</p>
+          <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded">
+            <p className="text-red-700 text-sm font-medium">⚠️ {error}</p>
           </div>
         )}
 
         {success && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-600 text-sm">{success}</p>
+          <div className="mb-4 p-4 bg-green-50 border-l-4 border-green-500 rounded">
+            <p className="text-green-700 text-sm font-medium">✅ {success}</p>
           </div>
         )}
 
-        <div className="space-y-4">
+        <form onSubmit={handleAuth} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Email Address
@@ -153,12 +195,13 @@ export default function Auth({ onSuccess }) {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               disabled={loading}
               autoComplete="email"
+              required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password
+              Password {isSignUp && '(minimum 6 characters)'}
             </label>
             <input
               type="password"
@@ -169,6 +212,8 @@ export default function Auth({ onSuccess }) {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               disabled={loading}
               autoComplete={isSignUp ? 'new-password' : 'current-password'}
+              required
+              minLength={6}
             />
           </div>
 
@@ -186,13 +231,21 @@ export default function Auth({ onSuccess }) {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={loading}
                 autoComplete="new-password"
+                required={isSignUp}
+                minLength={6}
               />
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-red-500 text-xs mt-1">❌ Passwords do not match</p>
+              )}
+              {confirmPassword && password === confirmPassword && (
+                <p className="text-green-500 text-xs mt-1">✅ Passwords match</p>
+              )}
             </div>
           )}
 
           <button
-            onClick={handleAuth}
-            disabled={loading}
+            type="submit"
+            disabled={loading || (isSignUp && password !== confirmPassword)}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold text-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? (
@@ -207,7 +260,7 @@ export default function Auth({ onSuccess }) {
               isSignUp ? 'Create Account' : 'Sign In'
             )}
           </button>
-        </div>
+        </form>
 
         <div className="mt-6 text-center">
           <p className="text-gray-600">
