@@ -2,9 +2,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { getSupabase } from '../lib/supabaseClient'
 
-// NOTE: You'll need to add your Paystack public key to your .env file
-// NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=your_paystack_public_key
-
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000, 20000]
 
 export default function FundWalletPage() {
@@ -15,6 +12,7 @@ export default function FundWalletPage() {
   const [amount, setAmount] = useState('')
   const [selectedAmount, setSelectedAmount] = useState(null)
   const [processing, setProcessing] = useState(false)
+  const [paystackLoaded, setPaystackLoaded] = useState(false)
 
   useEffect(() => {
     checkUser()
@@ -22,11 +20,20 @@ export default function FundWalletPage() {
   }, [])
 
   const loadPaystackScript = () => {
-    if (document.getElementById('paystack-script')) return
+    if (document.getElementById('paystack-script')) {
+      setPaystackLoaded(true)
+      return
+    }
 
     const script = document.createElement('script')
     script.id = 'paystack-script'
     script.src = 'https://js.paystack.co/v1/inline.js'
+    script.async = true
+    script.onload = () => setPaystackLoaded(true)
+    script.onerror = () => {
+      console.error('Failed to load Paystack script')
+      alert('Failed to load payment system. Please refresh the page.')
+    }
     document.body.appendChild(script)
   }
 
@@ -73,18 +80,36 @@ export default function FundWalletPage() {
       return
     }
 
+    if (!paystackLoaded) {
+      alert('Payment system is still loading. Please wait a moment and try again.')
+      return
+    }
+
+    if (!window.PaystackPop) {
+      alert('Payment system not available. Please refresh the page.')
+      return
+    }
+
+    const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
+
+    if (!paystackKey || paystackKey.includes('pk_test_') === false && paystackKey.includes('pk_live_') === false) {
+      alert('Payment system not configured. Please contact support.')
+      console.error('Paystack public key not set or invalid')
+      return
+    }
+
     setProcessing(true)
 
     try {
       const supabase = getSupabase()
+      const reference = `dududata_${Date.now()}_${user.id.slice(0, 8)}`
 
-      // Initialize Paystack payment
       const handler = window.PaystackPop.setup({
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxx', // Replace with your key
+        key: paystackKey,
         email: user.email,
-        amount: finalAmount * 100, // Paystack uses kobo
+        amount: finalAmount * 100, // Convert to kobo
         currency: 'NGN',
-        ref: `dududata_${Date.now()}_${user.id.slice(0, 8)}`,
+        ref: reference,
         metadata: {
           user_id: user.id,
           custom_fields: [
@@ -100,7 +125,6 @@ export default function FundWalletPage() {
           console.log('Payment window closed')
         },
         callback: async function(response) {
-          // Payment successful
           console.log('Payment successful:', response)
 
           try {
@@ -113,7 +137,7 @@ export default function FundWalletPage() {
 
             if (updateError) {
               console.error('Balance update error:', updateError)
-              alert('Payment successful but failed to update balance. Please contact support.')
+              alert('Payment successful but failed to update balance. Please contact support with reference: ' + response.reference)
               setProcessing(false)
               return
             }
@@ -136,8 +160,20 @@ export default function FundWalletPage() {
               console.error('Transaction record error:', transactionError)
             }
 
+            // Create notification
+            await supabase
+              .from('notifications')
+              .insert([
+                {
+                  user_id: user.id,
+                  title: 'Wallet Funded Successfully! 💰',
+                  message: `Your wallet has been funded with ₦${finalAmount.toLocaleString()}. Your new balance is ₦${newBalance.toLocaleString()}.`,
+                  type: 'success'
+                }
+              ])
+
             setBalance(newBalance)
-            alert(`Success! Your wallet has been funded with ₦${finalAmount}`)
+            alert(`Success! Your wallet has been funded with ₦${finalAmount.toLocaleString()}`)
             setAmount('')
             setSelectedAmount(null)
           } catch (err) {
@@ -207,7 +243,7 @@ export default function FundWalletPage() {
                   }}
                   className={`p-6 rounded-lg transition-all ${
                     selectedAmount === quickAmount
-                      ? 'bg-white text-blue-600 shadow-lg'
+                      ? 'bg-white text-blue-600 shadow-lg scale-105'
                       : 'bg-white/20 hover:bg-white/30'
                   }`}
                 >
@@ -256,19 +292,27 @@ export default function FundWalletPage() {
 
           {/* Payment Method Info */}
           <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 border border-white/20">
-            <h3 className="text-xl font-bold mb-3">Payment Methods</h3>
-            <div className="flex items-center gap-4 text-sm text-white/80">
-              <span>💳 Card</span>
-              <span>🏦 Bank Transfer</span>
-              <span>📱 USSD</span>
-              <span>🔒 Secured by Paystack</span>
+            <h3 className="text-xl font-bold mb-3">Payment Methods Available</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-white/5 p-3 rounded-lg text-center">
+                💳 <div className="font-semibold mt-1">Debit Card</div>
+              </div>
+              <div className="bg-white/5 p-3 rounded-lg text-center">
+                🏦 <div className="font-semibold mt-1">Bank Transfer</div>
+              </div>
+              <div className="bg-white/5 p-3 rounded-lg text-center">
+                📱 <div className="font-semibold mt-1">USSD</div>
+              </div>
+              <div className="bg-white/5 p-3 rounded-lg text-center">
+                🔒 <div className="font-semibold mt-1">Secured by Paystack</div>
+              </div>
             </div>
           </div>
 
           {/* Fund Button */}
           <button
             onClick={handlePayment}
-            disabled={processing || !finalAmount}
+            disabled={processing || !finalAmount || !paystackLoaded}
             className="w-full bg-green-500 hover:bg-green-600 text-white py-4 px-6 rounded-lg font-bold text-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
             {processing ? (
@@ -279,18 +323,20 @@ export default function FundWalletPage() {
                 </svg>
                 Processing...
               </span>
+            ) : !paystackLoaded ? (
+              'Loading Payment System...'
             ) : (
               finalAmount ? `Fund Wallet - ₦${finalAmount.toLocaleString()}` : 'Enter Amount'
             )}
           </button>
 
           {/* Security Note */}
-          <div className="mt-6 text-center text-white/70 text-sm">
+          <div className="mt-6 text-center text-white/70 text-sm space-y-2">
             <p>🔒 Your payment is secured with 256-bit SSL encryption</p>
-            <p className="mt-2">Powered by Paystack</p>
+            <p>Powered by Paystack • Instant Credit • 24/7 Support</p>
           </div>
         </div>
       </div>
     </div>
   )
-}
+        }
