@@ -1,6 +1,6 @@
-cat > pages/api/paystack/create-account.js << 'EOF'
 import { createClient } from '@supabase/supabase-js'
 
+// Use SERVICE ROLE key for admin operations
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'User ID is required' })
     }
 
-    // Check if user already has an account
+    // Check if account already exists
     const { data: existingAccount } = await supabaseAdmin
       .from('user_virtual_accounts')
       .select('*')
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       })
     }
 
-    // Get user details
+    // Get user details from Supabase Auth
     const { data: user, error: userError } = await supabaseAdmin
       .auth.admin.getUserById(userId)
 
@@ -84,7 +84,8 @@ export default async function handler(req, res) {
         account_number: account.account_number,
         account_name: account.account_name,
         bank_name: account.bank_name,
-        customer_code: account.paystack_customer_code
+        customer_code: account.paystack_customer_code,
+        balance: account.balance
       }
     })
 
@@ -140,5 +141,4 @@ async function createPaystackVirtualAccount(customerCode) {
   }
 
   return data.data
-}
-EOF
+      }
