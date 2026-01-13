@@ -1,332 +1,397 @@
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/router'
-import { getSupabase } from '../lib/supabaseClient'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabaseClient'
+import WalletDashboard from '@/components/WalletDashboard'
 
 export default function ProfilePage() {
-  const router = useRouter()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState('profile')
-  
-  // Form states
-  const [fullName, setFullName] = useState('')
-  const [phoneNumber, setPhoneNumber] = useState('')
-  const [referralCode, setReferralCode] = useState('')
-  const [stats, setStats] = useState(null)
+  const [editing, setEditing] = useState(false)
+  const [formData, setFormData] = useState({
+    full_name: '',
+    phone: '',
+    address: ''
+  })
 
   useEffect(() => {
-    loadProfile()
+    fetchUserProfile()
   }, [])
 
-  const loadProfile = async () => {
+  async function fetchUserProfile() {
     try {
-      const supabase = getSupabase()
+      // Get current user
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
       
-      const { data: { user }, error } = await supabase.auth.getUser()
-      
-      if (error || !user) {
-        router.push('/login')
+      if (userError || !currentUser) {
+        console.error('No user found')
+        setLoading(false)
         return
       }
 
-      setUser(user)
+      setUser(currentUser)
 
-      // Get profile
-      const { data: profileData } = await supabase
+      // Get user profile from database
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
         .single()
 
-      if (profileData) {
+      if (!profileError && profileData) {
         setProfile(profileData)
-        setFullName(profileData.full_name || '')
-        setPhoneNumber(profileData.phone_number || '')
-        setReferralCode(profileData.referral_code || '')
-      }
+        setFormData({
+          full_name: profileData.full_name || '',
+          phone: profileData.phone || '',
+          address: profileData.address || ''
+        })
+      } else {
+        // If no profile exists, create one
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: currentUser.id,
+            email: currentUser.email,
+            full_name: currentUser.user_metadata?.full_name || currentUser.email.split('@')[0],
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single()
 
-      // Get statistics using the function
-      const { data: statsData } = await supabase
-        .rpc('get_user_stats', { user_uuid: user.id })
-
-      if (statsData) {
-        setStats(statsData)
+        if (!createError && newProfile) {
+          setProfile(newProfile)
+          setFormData({
+            full_name: newProfile.full_name || '',
+            phone: newProfile.phone || '',
+            address: newProfile.address || ''
+          })
+        }
       }
-    } catch (err) {
-      console.error('Error loading profile:', err)
+    } catch (error) {
+      console.error('Error fetching profile:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSaveProfile = async () => {
-    setSaving(true)
+  async function updateProfile() {
     try {
-      const supabase = getSupabase()
-
+      setLoading(true)
+      
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: fullName,
-          phone_number: phoneNumber
+          full_name: formData.full_name,
+          phone: formData.phone,
+          address: formData.address,
+          updated_at: new Date().toISOString()
         })
         .eq('id', user.id)
 
-      if (error) {
-        alert('Failed to update profile')
-      } else {
-        alert('Profile updated successfully!')
-        loadProfile()
-      }
-    } catch (err) {
-      console.error('Error saving profile:', err)
-      alert('An error occurred')
+      if (error) throw error
+
+      // Update local state
+      setProfile(prev => ({
+        ...prev,
+        ...formData
+      }))
+      
+      setEditing(false)
+      alert('Profile updated successfully!')
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      alert('Failed to update profile. Please try again.')
     } finally {
-      setSaving(false)
+      setLoading(false)
     }
   }
 
-  const copyReferralLink = () => {
-    const link = `${window.location.origin}/register?ref=${referralCode}`
-    navigator.clipboard.writeText(link)
-    alert('Referral link copied to clipboard!')
+  async function handleLogout() {
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      window.location.href = '/login'
+    } catch (error) {
+      console.error('Error logging out:', error)
+      alert('Failed to logout. Please try again.')
+    }
   }
 
-  if (loading) {
+  function handleInputChange(e) {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  if (loading && !user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-900 flex items-center justify-center">
-        <div className="text-white text-2xl">Loading...</div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
   }
 
-  const getLevelColor = (level) => {
-    switch(level) {
-      case 'platinum': return 'from-purple-400 to-pink-400'
-      case 'gold': return 'from-yellow-400 to-orange-400'
-      case 'silver': return 'from-gray-300 to-gray-400'
-      default: return 'from-blue-400 to-indigo-400'
-    }
-  }
-
-  const getLevelBadge = (level) => {
-    switch(level) {
-      case 'platinum': return '💎'
-      case 'gold': return '🥇'
-      case 'silver': return '🥈'
-      default: return '⭐'
-    }
+  if (!user) {
+    return (
+      <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold mb-4">Profile</h1>
+        <p className="text-gray-600 mb-4">You need to be logged in to view your profile.</p>
+        <a 
+          href="/login" 
+          className="block w-full text-center bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition"
+        >
+          Go to Login
+        </a>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-900 text-white">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">My Profile</h1>
-          <button 
-            onClick={() => router.push('/dashboard')}
-            className="bg-white/20 hover:bg-white/30 px-6 py-2 rounded-lg font-semibold transition-colors"
-          >
-            ← Back
-          </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold">My Profile</h1>
+              <p className="text-blue-100 mt-2">Manage your account and wallet</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition"
+            >
+              Logout
+            </button>
+          </div>
         </div>
+      </div>
 
-        <div className="max-w-6xl mx-auto">
-          {/* User Level Card */}
-          <div className={`bg-gradient-to-r ${getLevelColor(profile?.user_level)} rounded-2xl p-8 mb-8 shadow-2xl`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-white/80 mb-2">Member Status</div>
-                <div className="text-4xl font-bold text-white flex items-center gap-3">
-                  {getLevelBadge(profile?.user_level)}
-                  {profile?.user_level?.toUpperCase() || 'REGULAR'} MEMBER
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Profile Info */}
+          <div className="lg:col-span-1 space-y-8">
+            {/* Profile Card */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                  {profile?.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
                 </div>
-                <div className="text-white/90 mt-2">
-                  Total Spent: ₦{profile?.total_spent?.toLocaleString() || 0}
-                </div>
-              </div>
-              <div className="text-6xl">{getLevelBadge(profile?.user_level)}</div>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl mb-6 border border-white/20">
-            <div className="flex gap-2 p-2">
-              {['profile', 'referrals', 'statistics'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all ${
-                    activeTab === tab
-                      ? 'bg-white text-blue-600 shadow-lg'
-                      : 'text-white hover:bg-white/10'
-                  }`}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Profile Tab */}
-          {activeTab === 'profile' && (
-            <div className="space-y-6">
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                <h2 className="text-2xl font-bold mb-6">Account Information</h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Email Address</label>
-                    <input
-                      type="email"
-                      value={user?.email || ''}
-                      disabled
-                      className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white"
-                    />
-                    <p className="text-xs text-white/60 mt-1">Email cannot be changed</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Full Name</label>
-                    <input
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Phone Number</label>
-                    <input
-                      type="tel"
-                      placeholder="08012345678"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                      className="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
-                      maxLength={11}
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleSaveProfile}
-                    disabled={saving}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-lg font-bold transition-colors disabled:opacity-50"
-                  >
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                <h2 className="text-2xl font-bold mb-4">Wallet Information</h2>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-lg">
-                    <span className="text-white/80">Current Balance:</span>
-                    <span className="font-bold text-2xl">₦{profile?.wallet_balance?.toLocaleString() || 0}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/80">Referral Earnings:</span>
-                    <span className="font-bold text-green-400">₦{profile?.referral_earnings?.toLocaleString() || 0}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Referrals Tab */}
-          {activeTab === 'referrals' && (
-            <div className="space-y-6">
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                <h2 className="text-2xl font-bold mb-4">Your Referral Code</h2>
-                <div className="bg-white/10 rounded-lg p-6 mb-4">
-                  <div className="text-center">
-                    <div className="text-sm text-white/70 mb-2">Your Referral Code</div>
-                    <div className="text-4xl font-bold mb-4">{referralCode}</div>
-                    <button
-                      onClick={copyReferralLink}
-                      className="bg-white text-blue-600 hover:bg-gray-100 px-6 py-2 rounded-lg font-semibold transition-colors"
-                    >
-                      📋 Copy Referral Link
-                    </button>
-                  </div>
-                </div>
-                <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-4">
-                  <p className="text-green-100 text-sm">
-                    💰 Earn 2% commission on every purchase made by users who sign up with your referral code!
+                <div>
+                  <h2 className="text-xl font-bold">{profile?.full_name || 'User'}</h2>
+                  <p className="text-gray-600">{user.email}</p>
+                  <p className="text-sm text-gray-500">
+                    Joined {new Date(user.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
 
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                <h2 className="text-2xl font-bold mb-4">Referral Earnings</h2>
-                <div className="text-center py-8">
-                  <div className="text-5xl font-bold text-green-400 mb-2">
-                    ₦{profile?.referral_earnings?.toLocaleString() || 0}
-                  </div>
-                  <div className="text-white/70">Total Earned from Referrals</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Statistics Tab */}
-          {activeTab === 'statistics' && stats && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                  <div className="text-white/70 mb-2">Total Transactions</div>
-                  <div className="text-4xl font-bold">{stats.total_transactions}</div>
-                </div>
-
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                  <div className="text-white/70 mb-2">Total Spent</div>
-                  <div className="text-4xl font-bold">₦{parseFloat(stats.total_spent).toLocaleString()}</div>
-                </div>
-
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                  <div className="text-white/70 mb-2">Total Funded</div>
-                  <div className="text-4xl font-bold text-green-400">₦{parseFloat(stats.total_funded).toLocaleString()}</div>
-                </div>
-
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                  <div className="text-white/70 mb-2">This Month</div>
-                  <div className="text-4xl font-bold">₦{parseFloat(stats.this_month_spent).toLocaleString()}</div>
-                </div>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                <h3 className="text-2xl font-bold mb-4">Purchase Breakdown</h3>
+              {!editing ? (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="text-3xl">📱</div>
-                      <div>Data Purchases</div>
-                    </div>
-                    <div className="text-2xl font-bold">{stats.data_purchases}</div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Full Name</h3>
+                    <p className="text-lg">{profile?.full_name || 'Not set'}</p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="text-3xl">📞</div>
-                      <div>Airtime Purchases</div>
-                    </div>
-                    <div className="text-2xl font-bold">{stats.airtime_purchases}</div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Phone</h3>
+                    <p className="text-lg">{profile?.phone || 'Not set'}</p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="text-3xl">💡</div>
-                      <div>Bill Payments</div>
-                    </div>
-                    <div className="text-2xl font-bold">{stats.bill_payments}</div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Address</h3>
+                    <p className="text-lg">{profile?.address || 'Not set'}</p>
                   </div>
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition"
+                  >
+                    Edit Profile
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      name="full_name"
+                      value={formData.full_name}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      placeholder="Enter your full name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Address
+                    </label>
+                    <textarea
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      rows="3"
+                      placeholder="Enter your address"
+                    />
+                  </div>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={updateProfile}
+                      disabled={loading}
+                      className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                    >
+                      {loading ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditing(false)
+                        setFormData({
+                          full_name: profile?.full_name || '',
+                          phone: profile?.phone || '',
+                          address: profile?.address || ''
+                        })
+                      }}
+                      className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Stats */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-bold mb-4">Account Stats</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Account Status</span>
+                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                    Active
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Member Since</span>
+                  <span className="font-medium">
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Email Verified</span>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    user.email_confirmed_at 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {user.email_confirmed_at ? 'Verified' : 'Pending'}
+                  </span>
                 </div>
               </div>
             </div>
-          )}
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
+              <div className="space-y-3">
+                <a 
+                  href="/transactions" 
+                  className="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <span className="font-medium">View All Transactions</span>
+                  <span className="text-gray-500 text-sm block">See your payment history</span>
+                </a>
+                <a 
+                  href="/support" 
+                  className="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <span className="font-medium">Contact Support</span>
+                  <span className="text-gray-500 text-sm block">Need help? Contact us</span>
+                </a>
+                <a 
+                  href="/notifications" 
+                  className="block w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <span className="font-medium">Notifications</span>
+                  <span className="text-gray-500 text-sm block">View your notifications</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Wallet Dashboard */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+              <h2 className="text-2xl font-bold mb-6">My Wallet</h2>
+              <WalletDashboard />
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Recent Activity</h2>
+                <a 
+                  href="/transactions" 
+                  className="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  View All
+                </a>
+              </div>
+              
+              {/* Recent Transactions will be shown by WalletDashboard */}
+              <p className="text-gray-500 text-center py-4">
+                Your recent transactions will appear here after you make payments.
+              </p>
+              
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <a 
+                  href="/airtime" 
+                  className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg hover:from-blue-100 hover:to-blue-200 transition"
+                >
+                  <div className="text-blue-600 mb-2">📱</div>
+                  <h3 className="font-bold">Buy Airtime</h3>
+                  <p className="text-sm text-gray-600">Top up any phone</p>
+                </a>
+                <a 
+                  href="/bills" 
+                  className="p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg hover:from-green-100 hover:to-green-200 transition"
+                >
+                  <div className="text-green-600 mb-2">💡</div>
+                  <h3 className="font-bold">Pay Bills</h3>
+                  <p className="text-sm text-gray-600">Electricity, TV, etc.</p>
+                </a>
+                <a 
+                  href="/data" 
+                  className="p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition"
+                >
+                  <div className="text-purple-600 mb-2">📶</div>
+                  <h3 className="font-bold">Buy Data</h3>
+                  <p className="text-sm text-gray-600">Mobile internet plans</p>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-12 border-t border-gray-200 pt-8 pb-6">
+        <div className="container mx-auto px-4 text-center text-gray-600">
+          <p>Need help? Contact our support team at support@yourdomain.com</p>
+          <p className="mt-2 text-sm">© {new Date().getFullYear()} Your App Name. All rights reserved.</p>
         </div>
       </div>
     </div>
