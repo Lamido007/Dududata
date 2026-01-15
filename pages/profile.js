@@ -7,8 +7,8 @@ const initializeSupabase = () => {
   
   try {
     const { createClient } = require('@supabase/supabase-js')
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabaseUrl = https://kamqzwgzftpxchwmokxp.supabase.co
+    const supabaseAnonKey = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthbXF6d2d6ZnRweGNod21va3hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NzA5NzYsImV4cCI6MjA4MDU0Njk3Nn0.W8_rKf3ZjgH09-cuMXiTQLr_hxoa2-T_TaQglrD0I3M
     
     if (!supabaseUrl || !supabaseAnonKey) {
       console.warn('Supabase environment variables not found')
