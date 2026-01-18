@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabaseClient'
 
 export default function WalletDashboard() {
   const [account, setAccount] = useState(null)
-  const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [creatingAccount, setCreatingAccount] = useState(false)
 
@@ -13,23 +12,17 @@ export default function WalletDashboard() {
 
   async function fetchAccountDetails() {
     try {
-      const { data } = await supabase.auth.getUser()
-      const user = data?.user
+      const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
         setLoading(false)
         return
       }
 
-      const response = await fetch(`/api/paystack/get-account?userId=${user.id}`)
-      const result = await response.json()
-
-      if (response.ok) {
-        setAccount(result.account)
-        setTransactions(result.transactions || [])
-      }
+      // Simple check - in real app, call your API
+      setAccount(null) // No account yet
     } catch (error) {
-      console.error('Error fetching account:', error)
+      console.error('Error:', error)
     } finally {
       setLoading(false)
     }
@@ -38,8 +31,7 @@ export default function WalletDashboard() {
   async function createVirtualAccount() {
     try {
       setCreatingAccount(true)
-      const { data } = await supabase.auth.getUser()
-      const user = data?.user
+      const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
         alert('Please log in to create a virtual account')
@@ -47,6 +39,7 @@ export default function WalletDashboard() {
         return
       }
 
+      // Call your API
       const response = await fetch('/api/paystack/create-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -71,132 +64,66 @@ export default function WalletDashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <div className="animate-pulse">
+          <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-6 text-white mb-8 shadow-lg">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">Your Wallet</h1>
-            <p className="text-blue-100">Manage your virtual account and transactions</p>
-          </div>
-          {!account && (
-            <button
-              onClick={createVirtualAccount}
-              disabled={creatingAccount}
-              className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition disabled:opacity-50"
-            >
-              {creatingAccount ? 'Creating...' : 'Create Virtual Account'}
-            </button>
-          )}
+    <div className="bg-white rounded-xl shadow-md p-6">
+      <h2 className="text-2xl font-bold mb-6">Your Wallet</h2>
+      
+      {!account ? (
+        <div className="text-center py-8">
+          <div className="text-4xl mb-4">💰</div>
+          <h3 className="text-xl font-bold mb-2">No Virtual Account Yet</h3>
+          <p className="text-gray-600 mb-6">
+            Create a Paystack virtual account to receive payments and fund your wallet.
+          </p>
+          <button
+            onClick={createVirtualAccount}
+            disabled={creatingAccount}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+          >
+            {creatingAccount ? 'Creating Account...' : 'Create Virtual Account'}
+          </button>
+          <p className="text-sm text-gray-500 mt-4">
+            You'll get a dedicated bank account number for deposits
+          </p>
         </div>
-        
-        {account && (
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm">
-              <p className="text-sm opacity-90">Account Balance</p>
-              <p className="text-3xl font-bold">
-                ₦{parseFloat(account?.balance || 0).toLocaleString()}
-              </p>
+      ) : (
+        <div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-600">Balance</p>
+              <p className="text-2xl font-bold">₦0.00</p>
             </div>
-            <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm">
-              <p className="text-sm opacity-90">Account Number</p>
-              <p className="text-2xl font-mono font-bold">{account.account_number || 'N/A'}</p>
-            </div>
-            <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm">
-              <p className="text-sm opacity-90">Bank Name</p>
-              <p className="text-xl font-semibold">{account.bank_name || 'Paystack'}</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {account && (
-        <div className="bg-white rounded-xl p-6 shadow-md mb-8">
-          <h2 className="text-xl font-bold mb-4">Virtual Account Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-600">Account Name</p>
-              <p className="text-lg font-semibold">{account.account_name || 'N/A'}</p>
-            </div>
-            <div>
+            <div className="bg-green-50 p-4 rounded-lg">
               <p className="text-sm text-gray-600">Account Number</p>
-              <p className="text-lg font-mono font-bold">{account.account_number || 'N/A'}</p>
+              <p className="text-xl font-mono font-bold">Not created yet</p>
             </div>
-            <div>
+            <div className="bg-purple-50 p-4 rounded-lg">
               <p className="text-sm text-gray-600">Bank</p>
-              <p className="text-lg">{account.bank_name || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Status</p>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                account.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
-                {account.is_active ? 'Active' : 'Inactive'}
-              </span>
+              <p className="text-lg font-semibold">Paystack</p>
             </div>
           </div>
           
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <h3 className="font-semibold text-blue-800 mb-2">💡 How to fund your account:</h3>
-            <ol className="list-decimal list-inside text-blue-700 space-y-1">
-              <li>Transfer money to the account number above from any bank</li>
-              <li>Use "Paystack" as the bank name if needed</li>
-              <li>The money will reflect in your wallet automatically</li>
-              <li>You can use your balance for payments on this platform</li>
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-bold mb-4">How to Use</h3>
+            <ol className="list-decimal list-inside space-y-2 text-gray-600">
+              <li>Create your virtual account</li>
+              <li>Transfer money to your account number</li>
+              <li>Use your balance for airtime, data, and bills</li>
+              <li>Track all transactions here</li>
             </ol>
           </div>
         </div>
       )}
-
-      <div className="bg-white rounded-xl p-6 shadow-md">
-        <h2 className="text-xl font-bold mb-4">Recent Transactions</h2>
-        {transactions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {transactions.map((tx) => (
-                  <tr key={tx.id}>
-                    <td className="px-4 py-3 text-sm">
-                      {tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-sm capitalize">{tx.transaction_type || 'N/A'}</td>
-                    <td className="px-4 py-3 text-sm font-medium">
-                      ₦{parseFloat(tx?.amount || 0).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        tx.status === 'success' 
-                          ? 'bg-green-100 text-green-800' 
-                          : tx.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {tx.status || 'unknown'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-gray-500 text-center py-8">No transactions yet</p>
-        )}
-      </div>
     </div>
   )
 }
