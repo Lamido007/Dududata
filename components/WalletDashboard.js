@@ -1,4 +1,3 @@
-cat > components/WalletDashboard.js << 'EOF'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -14,16 +13,20 @@ export default function WalletDashboard() {
 
   async function fetchAccountDetails() {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data } = await supabase.auth.getUser()
+      const user = data?.user
       
-      if (!user) return
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
       const response = await fetch(`/api/paystack/get-account?userId=${user.id}`)
-      const data = await response.json()
+      const result = await response.json()
 
       if (response.ok) {
-        setAccount(data.account)
-        setTransactions(data.transactions || [])
+        setAccount(result.account)
+        setTransactions(result.transactions || [])
       }
     } catch (error) {
       console.error('Error fetching account:', error)
@@ -35,8 +38,15 @@ export default function WalletDashboard() {
   async function createVirtualAccount() {
     try {
       setCreatingAccount(true)
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data } = await supabase.auth.getUser()
+      const user = data?.user
       
+      if (!user) {
+        alert('Please log in to create a virtual account')
+        setCreatingAccount(false)
+        return
+      }
+
       const response = await fetch('/api/paystack/create-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -49,7 +59,7 @@ export default function WalletDashboard() {
         alert('Virtual account created successfully!')
         fetchAccountDetails()
       } else {
-        alert(`Error: ${result.error}`)
+        alert(`Error: ${result.error || 'Failed to create account'}`)
       }
     } catch (error) {
       alert('Failed to create account. Please try again.')
@@ -90,15 +100,17 @@ export default function WalletDashboard() {
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm">
               <p className="text-sm opacity-90">Account Balance</p>
-              <p className="text-3xl font-bold">₦{parseFloat(account.balance).toLocaleString()}</p>
+              <p className="text-3xl font-bold">
+                ₦{parseFloat(account?.balance || 0).toLocaleString()}
+              </p>
             </div>
             <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm">
               <p className="text-sm opacity-90">Account Number</p>
-              <p className="text-2xl font-mono font-bold">{account.account_number}</p>
+              <p className="text-2xl font-mono font-bold">{account.account_number || 'N/A'}</p>
             </div>
             <div className="bg-white/20 p-4 rounded-lg backdrop-blur-sm">
               <p className="text-sm opacity-90">Bank Name</p>
-              <p className="text-xl font-semibold">{account.bank_name}</p>
+              <p className="text-xl font-semibold">{account.bank_name || 'Paystack'}</p>
             </div>
           </div>
         )}
@@ -110,22 +122,34 @@ export default function WalletDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-600">Account Name</p>
-              <p className="text-lg font-semibold">{account.account_name}</p>
+              <p className="text-lg font-semibold">{account.account_name || 'N/A'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Account Number</p>
-              <p className="text-lg font-mono font-bold">{account.account_number}</p>
+              <p className="text-lg font-mono font-bold">{account.account_number || 'N/A'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Bank</p>
-              <p className="text-lg">{account.bank_name}</p>
+              <p className="text-lg">{account.bank_name || 'N/A'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Status</p>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${account.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                account.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}>
                 {account.is_active ? 'Active' : 'Inactive'}
               </span>
             </div>
+          </div>
+          
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <h3 className="font-semibold text-blue-800 mb-2">💡 How to fund your account:</h3>
+            <ol className="list-decimal list-inside text-blue-700 space-y-1">
+              <li>Transfer money to the account number above from any bank</li>
+              <li>Use "Paystack" as the bank name if needed</li>
+              <li>The money will reflect in your wallet automatically</li>
+              <li>You can use your balance for payments on this platform</li>
+            </ol>
           </div>
         </div>
       )}
@@ -147,11 +171,11 @@ export default function WalletDashboard() {
                 {transactions.map((tx) => (
                   <tr key={tx.id}>
                     <td className="px-4 py-3 text-sm">
-                      {new Date(tx.created_at).toLocaleDateString()}
+                      {tx.created_at ? new Date(tx.created_at).toLocaleDateString() : 'N/A'}
                     </td>
-                    <td className="px-4 py-3 text-sm capitalize">{tx.transaction_type}</td>
+                    <td className="px-4 py-3 text-sm capitalize">{tx.transaction_type || 'N/A'}</td>
                     <td className="px-4 py-3 text-sm font-medium">
-                      ₦{parseFloat(tx.amount).toLocaleString()}
+                      ₦{parseFloat(tx?.amount || 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 text-xs rounded-full ${
@@ -161,7 +185,7 @@ export default function WalletDashboard() {
                           ? 'bg-yellow-100 text-yellow-800'
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {tx.status}
+                        {tx.status || 'unknown'}
                       </span>
                     </td>
                   </tr>
@@ -176,4 +200,3 @@ export default function WalletDashboard() {
     </div>
   )
 }
-EOF
