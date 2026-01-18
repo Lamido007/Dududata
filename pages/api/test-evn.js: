@@ -1,0 +1,8 @@
+export default function handler(req, res) {
+  res.json({
+    status: 'ok',
+    hasSupabaseUrl: !!process.env.https://kamqzwgzftpxchwmokxp.supabase.co
+    hasSupabaseKey: !!process.env.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthbXF6d2d6ZnRweGNod21va3hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5NzA5NzYsImV4cCI6MjA4MDU0Njk3Nn0.W8_rKf3ZjgH09-cuMXiTQLr_hxoa2-T_TaQglrD0I3M
+    timestamp: new Date().toISOString()
+  })
+}
