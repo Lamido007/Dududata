@@ -13,7 +13,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     checkUser()
-  }, [])
+  }, [router])
 
   const checkUser = async () => {
     try {
@@ -24,47 +24,55 @@ export default function Dashboard() {
         return
       }
 
-      const { data: { user }, error } = await supabase.auth.getUser()
-      
-      if (error || !user) {
+      // safe destructuring
+      const { data, error } = await supabase.auth.getUser()
+      const currentUser = data?.user
+
+      if (error || !currentUser) {
         router.push('/login')
         return
       }
 
-      setUser(user)
+      setUser(currentUser)
 
       // Fetch profile with new fields
       const { data: profileData, error: balanceError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
         .single()
 
       if (!balanceError && profileData) {
         setProfile(profileData)
-        setBalance(profileData.wallet_balance || 0)
+        setBalance(Number(profileData.wallet_balance) || 0)
       }
 
       // Fetch recent transactions
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false })
         .limit(5)
 
       if (!transactionsError && transactionsData) {
         setTransactions(transactionsData)
+      } else if (transactionsError) {
+        console.error('Transactions fetch error:', transactionsError)
       }
 
       // Fetch unread notifications
-      const { data: notifData } = await supabase
+      const { data: notifData, error: notifError } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .eq('is_read', false)
         .order('created_at', { ascending: false })
         .limit(3)
+
+      if (notifError) {
+        console.error('Notifications fetch error:', notifError)
+      }
 
       if (notifData) {
         setNotifications(notifData)
@@ -100,7 +108,7 @@ export default function Dashboard() {
   }
 
   const getLevelBadge = (level) => {
-    switch(level) {
+    switch ((level || '').toLowerCase()) {
       case 'platinum': return '💎'
       case 'gold': return '🥇'
       case 'silver': return '🥈'
@@ -121,7 +129,7 @@ export default function Dashboard() {
               )}
             </h1>
             <p className="text-white/70 mt-1">
-              Welcome back, {profile?.full_name || user.email?.split('@')[0]}!
+              Welcome back, {profile?.full_name || user?.email?.split?.('@')[0] || 'User'}!
             </p>
           </div>
           <div className="flex gap-3">
@@ -185,13 +193,13 @@ export default function Dashboard() {
               <div>
                 <p className="text-white/80 text-lg mb-2">Wallet Balance</p>
                 <p className="text-5xl font-bold text-white">
-                  ₦{balance.toLocaleString()}
+                  ₦{Number(balance).toLocaleString()}
                 </p>
               </div>
               <div className="text-right">
                 <div className="text-white/80 text-sm mb-1">Referral Earnings</div>
                 <div className="text-2xl font-bold text-white">
-                  ₦{profile?.referral_earnings?.toLocaleString() || 0}
+                  ₦{Number(profile?.referral_earnings || 0).toLocaleString()}
                 </div>
               </div>
             </div>
@@ -243,7 +251,7 @@ export default function Dashboard() {
             </div>
             <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
               <div className="text-white/70 text-sm mb-1">Total Spent</div>
-              <div className="text-2xl font-bold">₦{profile?.total_spent?.toLocaleString() || 0}</div>
+              <div className="text-2xl font-bold">₦{Number(profile?.total_spent || 0).toLocaleString()}</div>
             </div>
             <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
               <div className="text-white/70 text-sm mb-1">Transactions</div>
@@ -268,41 +276,46 @@ export default function Dashboard() {
                 </button>
               </div>
               <div className="space-y-3">
-                {transactions.map((transaction) => (
-                  <div 
-                    key={transaction.id} 
-                    className="bg-white/5 rounded-lg p-4 flex justify-between items-center hover:bg-white/10 transition-colors"
-                  >
-                    <div>
-                      <div className="font-semibold">
-                        {transaction.type === 'data' && '📱'} 
-                        {transaction.type === 'airtime' && '📞'}
-                        {transaction.type === 'bills' && '💡'}
-                        {transaction.type === 'funding' && '💰'}
-                        {' '}
-                        {transaction.type.toUpperCase()} {transaction.network && `- ${transaction.network}`}
+                {transactions.map((transaction) => {
+                  const typeLabel = (transaction.type || '').toUpperCase()
+                  const amountNumber = Number(transaction.amount) || 0
+
+                  return (
+                    <div 
+                      key={transaction.id} 
+                      className="bg-white/5 rounded-lg p-4 flex justify-between items-center hover:bg-white/10 transition-colors"
+                    >
+                      <div>
+                        <div className="font-semibold">
+                          {transaction.type === 'data' && '📱'} 
+                          {transaction.type === 'airtime' && '📞'}
+                          {transaction.type === 'bills' && '💡'}
+                          {transaction.type === 'funding' && '💰'}
+                          {' '}
+                          {typeLabel} {transaction.network && `- ${transaction.network}`}
+                        </div>
+                        <div className="text-sm text-white/70">
+                          {transaction.phone_number || 'N/A'} {transaction.bundle_size && `• ${transaction.bundle_size}`}
+                        </div>
+                        <div className="text-xs text-white/50">
+                          {new Date(transaction.created_at).toLocaleDateString()}
+                        </div>
                       </div>
-                      <div className="text-sm text-white/70">
-                        {transaction.phone_number || 'N/A'} {transaction.bundle_size && `• ${transaction.bundle_size}`}
-                      </div>
-                      <div className="text-xs text-white/50">
-                        {new Date(transaction.created_at).toLocaleDateString()}
+                      <div className="text-right">
+                        <div className="font-bold text-lg">
+                          {transaction.type === 'funding' ? '+' : '-'}₦{amountNumber.toLocaleString()}
+                        </div>
+                        <div className={`text-sm ${
+                          transaction.status === 'completed' ? 'text-green-400' :
+                          transaction.status === 'failed' ? 'text-red-400' :
+                          'text-yellow-400'
+                        }`}>
+                          {transaction.status}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold text-lg">
-                        {transaction.type === 'funding' ? '+' : '-'}₦{parseFloat(transaction.amount).toLocaleString()}
-                      </div>
-                      <div className={`text-sm ${
-                        transaction.status === 'completed' ? 'text-green-400' :
-                        transaction.status === 'failed' ? 'text-red-400' :
-                        'text-yellow-400'
-                      }`}>
-                        {transaction.status}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -310,4 +323,4 @@ export default function Dashboard() {
       </div>
     </div>
   )
-        }
+}
