@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import { getSupabase } from '../lib/supabaseClient'
+import { supabase } from '../lib/supabaseClient'
 
 const AIRTIME_OPTIONS = [
   { amount: 50, discount: 2 },
