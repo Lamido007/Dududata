@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import { getSupabase } from '../lib/supabaseClient'
+import { supabase } from '../lib/supabaseClient'
 
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000, 20000]
 
