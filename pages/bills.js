@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+q1import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import { getSupabase } from '../lib/supabaseClient'
+import { supabase } from '../lib/supabaseClient'
 
 const BILL_TYPES = {
   electricity: {
